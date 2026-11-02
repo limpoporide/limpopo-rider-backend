@@ -1,0 +1,19 @@
+# Lives on the droplet in ~/limpopo/ next to the two cloned repos.
+services:
+  rider:
+    build: ../limpopo-rider-backend
+    env_file: rider.env
+    restart: unless-stopped
+  driver:
+    build: ../limpopo-driver-backend
+    env_file: driver.env
+    restart: unless-stopped
+  caddy:
+    image: caddy:2
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+    restart: unless-stopped
+volumes:
+  caddy_data:

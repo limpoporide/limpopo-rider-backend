@@ -1,0 +1,7 @@
+rider-api.example.com {
+  reverse_proxy rider:3000
+}
+
+driver-api.example.com {
+  reverse_proxy driver:3000
+}

@@ -3,19 +3,38 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "supabase start",
-    "stop": "supabase stop",
-    "status": "supabase status",
-    "functions:serve": "supabase functions serve --env-file .env",
-    "functions:deploy": "supabase functions deploy",
     "db:pull": "supabase db pull",
     "db:diff": "supabase db diff -f",
     "db:reset": "supabase db reset",
     "db:push": "supabase db push",
     "db:migration:new": "supabase migration new",
-    "db:types": "supabase gen types typescript --local > types/database.ts"
+    "db:types": "supabase gen types typescript --local > types/database.ts",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:status": "supabase status",
+    "build": "nest build",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main"
   },
   "devDependencies": {
-    "supabase": "^2.0.0"
+    "@nestjs/cli": "^12.0.11",
+    "@nestjs/schematics": "^12.0.12",
+    "@nestjs/testing": "^12.3.2",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.6",
+    "supabase": "^2.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@nestjs/common": "^12.3.2",
+    "@nestjs/config": "^12.0.1",
+    "@nestjs/core": "^12.3.2",
+    "@nestjs/platform-express": "^12.3.2",
+    "@supabase/supabase-js": "^2.118.0",
+    "agora-token": "^2.0.7",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
   }
 }

@@ -1,0 +1,21 @@
+{
+  "name": "limpopo-rider-backend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "supabase start",
+    "stop": "supabase stop",
+    "status": "supabase status",
+    "functions:serve": "supabase functions serve --env-file .env",
+    "functions:deploy": "supabase functions deploy",
+    "db:pull": "supabase db pull",
+    "db:diff": "supabase db diff -f",
+    "db:reset": "supabase db reset",
+    "db:push": "supabase db push",
+    "db:migration:new": "supabase migration new",
+    "db:types": "supabase gen types typescript --local > types/database.ts"
+  },
+  "devDependencies": {
+    "supabase": "^2.0.0"
+  }
+}

@@ -39,5 +39,5 @@ jobs:
         run: |
           ssh "$TARGET" 'set -e
             cd ~/limpopo-rider-backend && git pull --ff-only
-            cd ~/limpopo && docker compose up -d --build rider
+            cd ~/limpopo && BUILDX_BAKE_ENTITLEMENTS_FS=0 docker compose up -d --build rider
             docker image prune -f'

@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { ThrottlerException } from '@nestjs/throttler';
 import type { Response } from 'express';
 
 // Keeps the `{ error: string }` response shape the mobile clients already expect.
@@ -28,7 +29,7 @@ export class ErrorResponseFilter implements ExceptionFilter {
 
       response.status(status).json({
         error:
-          status === HttpStatus.TOO_MANY_REQUESTS
+          exception instanceof ThrottlerException
             ? 'Too many requests. Please wait a moment and try again.'
             : message,
       });

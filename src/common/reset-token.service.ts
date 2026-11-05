@@ -9,7 +9,9 @@ export class ResetTokenService {
   constructor(private readonly config: ConfigService) {}
 
   private get secret() {
-    const secret = this.config.get<string>('PASSWORD_RESET_TOKEN_SECRET') || this.config.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+    const secret =
+      this.config.get<string>('PASSWORD_RESET_TOKEN_SECRET') ||
+      this.config.get<string>('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!secret) {
       throw new InternalServerErrorException('Server is misconfigured');
@@ -23,7 +25,9 @@ export class ResetTokenService {
   }
 
   issue(phone: string, purpose: string) {
-    const payload = Buffer.from(JSON.stringify({ phone, purpose, exp: Date.now() + RESET_TOKEN_TTL_MS })).toString('base64url');
+    const payload = Buffer.from(
+      JSON.stringify({ phone, purpose, exp: Date.now() + RESET_TOKEN_TTL_MS }),
+    ).toString('base64url');
     return `${payload}.${this.sign(payload)}`;
   }
 
@@ -50,7 +54,12 @@ export class ResetTokenService {
       throw new UnauthorizedException('Reset session is invalid or expired');
     }
 
-    if (decoded.purpose !== purpose || decoded.phone !== phone || typeof decoded.exp !== 'number' || decoded.exp < Date.now()) {
+    if (
+      decoded.purpose !== purpose ||
+      decoded.phone !== phone ||
+      typeof decoded.exp !== 'number' ||
+      decoded.exp < Date.now()
+    ) {
       throw new UnauthorizedException('Reset session is invalid or expired');
     }
   }

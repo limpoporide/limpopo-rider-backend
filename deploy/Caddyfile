@@ -1,8 +1,8 @@
 # Append these blocks to /etc/caddy/Caddyfile on the droplet (keep existing blocks, e.g. the BudPay proxy).
-rider-api.example.com {
+rider-api.limpoporide.com {
   reverse_proxy 127.0.0.1:3000
 }
 
-driver-api.example.com {
+driver-api.limpoporide.com {
   reverse_proxy 127.0.0.1:3001
 }

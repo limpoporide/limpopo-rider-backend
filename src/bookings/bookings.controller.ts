@@ -1,10 +1,14 @@
 import { Body, Controller, Headers, HttpCode, Post, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { BookingsService, EndpointResponse } from './bookings.service';
+import { TripCompletionService } from './trip-completion.service';
 
 @Controller()
 export class BookingsController {
-  constructor(private readonly service: BookingsService) {}
+  constructor(
+    private readonly service: BookingsService,
+    private readonly tripCompletion: TripCompletionService,
+  ) {}
 
   @Post('notify-new-booking-drivers')
   @HttpCode(200)
@@ -38,14 +42,32 @@ export class BookingsController {
 
   @Post('manage-rider-notifications')
   @HttpCode(200)
-  manageRiderNotifications(@Body() body: unknown, @Headers('authorization') authorization: string | undefined, @Res() res: Response) {
+  manageRiderNotifications(
+    @Body() body: unknown,
+    @Headers('authorization') authorization: string | undefined,
+    @Res() res: Response,
+  ) {
     return this.send(res, this.service.manageRiderNotifications(body, authorization));
   }
 
   @Post('manage-driver-notifications')
   @HttpCode(200)
-  manageDriverNotifications(@Body() body: unknown, @Headers('authorization') authorization: string | undefined, @Res() res: Response) {
+  manageDriverNotifications(
+    @Body() body: unknown,
+    @Headers('authorization') authorization: string | undefined,
+    @Res() res: Response,
+  ) {
     return this.send(res, this.service.manageDriverNotifications(body, authorization));
+  }
+
+  @Post('complete-rider-trip')
+  @HttpCode(200)
+  completeRiderTrip(
+    @Body() body: unknown,
+    @Headers('authorization') authorization: string | undefined,
+    @Res() res: Response,
+  ) {
+    return this.send(res, this.tripCompletion.completeTrip(body, authorization));
   }
 
   private async send(res: Response, result: Promise<EndpointResponse>) {

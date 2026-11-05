@@ -8,13 +8,21 @@ export class TripsController {
 
   @Post('create-trip-share-link')
   @HttpCode(200)
-  createTripShareLink(@Body() body: unknown, @Headers('authorization') authorization: string | undefined, @Res() res: Response) {
+  createTripShareLink(
+    @Body() body: unknown,
+    @Headers('authorization') authorization: string | undefined,
+    @Res() res: Response,
+  ) {
     return this.send(res, this.trips.createTripShareLink(body, authorization));
   }
 
   @Post('create-agora-call-token')
   @HttpCode(200)
-  createAgoraCallToken(@Body() body: unknown, @Headers('authorization') authorization: string | undefined, @Res() res: Response) {
+  createAgoraCallToken(
+    @Body() body: unknown,
+    @Headers('authorization') authorization: string | undefined,
+    @Res() res: Response,
+  ) {
     return this.send(res, this.trips.createAgoraCallToken(body, authorization));
   }
 

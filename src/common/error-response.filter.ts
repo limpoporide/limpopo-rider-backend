@@ -1,4 +1,11 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import type { Response } from 'express';
 
 // Keeps the `{ error: string }` response shape the mobile clients already expect.
@@ -11,10 +18,20 @@ export class ErrorResponseFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       const body = exception.getResponse();
-      const raw = typeof body === 'string' ? body : (body as { message?: string | string[] }).message;
-      const message = Array.isArray(raw) ? (raw[0] ?? exception.message) : (raw ?? exception.message);
+      const raw =
+        typeof body === 'string' ? body : (body as { message?: string | string[] }).message;
+      const message = Array.isArray(raw)
+        ? (raw[0] ?? exception.message)
+        : (raw ?? exception.message);
 
-      response.status(exception.getStatus()).json({ error: message });
+      const status = exception.getStatus();
+
+      response.status(status).json({
+        error:
+          status === HttpStatus.TOO_MANY_REQUESTS
+            ? 'Too many requests. Please wait a moment and try again.'
+            : message,
+      });
       return;
     }
 

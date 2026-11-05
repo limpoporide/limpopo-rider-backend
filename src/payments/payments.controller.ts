@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, HttpCode, Post, RawBodyRequest, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Post, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { PaymentsResponse, PaymentsService } from './payments.service';
 
@@ -10,12 +10,8 @@ export class PaymentsController {
 
   @Post('budpay-webhook')
   @HttpCode(200)
-  async budpayWebhook(
-    @Req() request: RawBodyRequest<Request>,
-    @Headers('x-budpay-signature') signature: string | undefined,
-    @Res() response: Response,
-  ) {
-    return this.send(response, await this.payments.budpayWebhook(signature, request.rawBody));
+  async budpayWebhook(@Body() body: PaymentBody, @Res() response: Response) {
+    return this.send(response, await this.payments.budpayWebhook(body));
   }
 
   @Post('list-budpay-banks')

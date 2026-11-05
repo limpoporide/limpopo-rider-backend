@@ -1,4 +1,10 @@
-import { BadGatewayException, HttpException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  BadGatewayException,
+  HttpException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 const TERMII_BASE_URL = 'https://v4.api.termii.com';
@@ -44,11 +50,18 @@ export class TermiiService {
 
     if (!response.ok) {
       this.logger.warn(`Termii send failed ${JSON.stringify(payload)}`);
-      throw new HttpException(payload?.message ?? payload?.smsStatus ?? 'Unable to send OTP right now.', response.status);
+      throw new HttpException(
+        payload?.message ?? payload?.smsStatus ?? 'Unable to send OTP right now.',
+        response.status,
+      );
     }
 
     const pinId =
-      typeof payload?.pinId === 'string' ? payload.pinId : typeof payload?.pin_id === 'string' ? payload.pin_id : '';
+      typeof payload?.pinId === 'string'
+        ? payload.pinId
+        : typeof payload?.pin_id === 'string'
+          ? payload.pin_id
+          : '';
 
     if (!pinId) {
       throw new BadGatewayException('We could not start verification right now. Please try again.');

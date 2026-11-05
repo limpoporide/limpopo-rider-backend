@@ -1,4 +1,4 @@
-import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { HttpException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -62,102 +62,142 @@ export class PaymentsService {
     });
   }
 
-  async resolveDriverBankAccount(authorization?: string, body?: PaymentBody): Promise<PaymentsResponse> {
-    return this.execute('resolve-driver-bank-account', 'Unexpected error verifying account', async () => {
-      if (!authorization) this.fail(401, 'Missing authorization header');
-      this.requireEnv('SUPABASE_URL', 'SUPABASE_ANON_KEY', 'BUDPAY_SECRET_KEY');
-      await this.getUser(authorization);
+  async resolveDriverBankAccount(
+    authorization?: string,
+    body?: PaymentBody,
+  ): Promise<PaymentsResponse> {
+    return this.execute(
+      'resolve-driver-bank-account',
+      'Unexpected error verifying account',
+      async () => {
+        if (!authorization) this.fail(401, 'Missing authorization header');
+        this.requireEnv('SUPABASE_URL', 'SUPABASE_ANON_KEY', 'BUDPAY_SECRET_KEY');
+        await this.getUser(authorization);
 
-      const bankCode = body?.bankCode as string | undefined;
-      const accountNumber = body?.accountNumber as string | undefined;
-      if (!bankCode || !accountNumber) this.fail(400, 'bankCode and accountNumber are required');
+        const bankCode = body?.bankCode as string | undefined;
+        const accountNumber = body?.accountNumber as string | undefined;
+        if (!bankCode || !accountNumber) this.fail(400, 'bankCode and accountNumber are required');
 
-      const verifyResponse = await fetch(`${BUDPAY_BASE_URL}/account_name_verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: this.budpayAuthorization() },
-        body: JSON.stringify({ bank_code: bankCode, account_number: accountNumber }),
-      });
-      const verifyResult = await verifyResponse.json();
+        const verifyResponse = await fetch(`${BUDPAY_BASE_URL}/account_name_verify`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: this.budpayAuthorization(),
+          },
+          body: JSON.stringify({ bank_code: bankCode, account_number: accountNumber }),
+        });
+        const verifyResult = await verifyResponse.json();
 
-      if (!verifyResponse.ok || verifyResult?.success !== true) {
-        this.logger.warn(`BudPay account name verification failed: ${JSON.stringify(verifyResult)}`);
-        this.fail(502, verifyResult?.message || 'Unable to verify account details');
-      }
+        if (!verifyResponse.ok || verifyResult?.success !== true) {
+          this.logger.warn(
+            `BudPay account name verification failed: ${JSON.stringify(verifyResult)}`,
+          );
+          this.fail(502, verifyResult?.message || 'Unable to verify account details');
+        }
 
-      return this.result(200, { accountName: verifyResult.data as string });
-    });
+        return this.result(200, { accountName: verifyResult.data as string });
+      },
+    );
   }
 
-  async saveDriverPayoutAccount(authorization?: string, body?: PaymentBody): Promise<PaymentsResponse> {
-    return this.execute('save-driver-payout-account', 'Unexpected error saving payout account', async () => {
-      if (!authorization) this.fail(401, 'Missing authorization header');
-      this.requireEnv('SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'BUDPAY_SECRET_KEY');
-      const user = await this.getUser(authorization);
+  async saveDriverPayoutAccount(
+    authorization?: string,
+    body?: PaymentBody,
+  ): Promise<PaymentsResponse> {
+    return this.execute(
+      'save-driver-payout-account',
+      'Unexpected error saving payout account',
+      async () => {
+        if (!authorization) this.fail(401, 'Missing authorization header');
+        this.requireEnv(
+          'SUPABASE_URL',
+          'SUPABASE_ANON_KEY',
+          'SUPABASE_SERVICE_ROLE_KEY',
+          'BUDPAY_SECRET_KEY',
+        );
+        const user = await this.getUser(authorization);
 
-      const bankCode = body?.bankCode as string | undefined;
-      const bankName = body?.bankName as string | undefined;
-      const accountNumber = body?.accountNumber as string | undefined;
-      if (!bankCode || !bankName || !accountNumber) {
-        this.fail(400, 'bankCode, bankName and accountNumber are required');
-      }
+        const bankCode = body?.bankCode as string | undefined;
+        const bankName = body?.bankName as string | undefined;
+        const accountNumber = body?.accountNumber as string | undefined;
+        if (!bankCode || !bankName || !accountNumber) {
+          this.fail(400, 'bankCode, bankName and accountNumber are required');
+        }
 
-      const verifyResponse = await fetch(`${BUDPAY_BASE_URL}/account_name_verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: this.budpayAuthorization() },
-        body: JSON.stringify({ bank_code: bankCode, account_number: accountNumber }),
-      });
-      const verifyResult = await verifyResponse.json();
+        const verifyResponse = await fetch(`${BUDPAY_BASE_URL}/account_name_verify`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: this.budpayAuthorization(),
+          },
+          body: JSON.stringify({ bank_code: bankCode, account_number: accountNumber }),
+        });
+        const verifyResult = await verifyResponse.json();
 
-      if (!verifyResponse.ok || verifyResult?.success !== true) {
-        this.logger.warn(`BudPay account name verification failed: ${JSON.stringify(verifyResult)}`);
-        this.fail(502, verifyResult?.message || 'Unable to verify account details');
-      }
+        if (!verifyResponse.ok || verifyResult?.success !== true) {
+          this.logger.warn(
+            `BudPay account name verification failed: ${JSON.stringify(verifyResult)}`,
+          );
+          this.fail(502, verifyResult?.message || 'Unable to verify account details');
+        }
 
-      const accountName = verifyResult.data as string;
-      const { error: updateError } = await this.supabase.admin
-        .from('driver_profile')
-        .update({
-          payout_bank_code: bankCode,
-          payout_bank_name: bankName,
-          payout_account_number: accountNumber,
-          payout_account_name: accountName,
-        })
-        .eq('uuid', user.id);
+        const accountName = verifyResult.data as string;
+        const { error: updateError } = await this.supabase.admin
+          .from('driver_profile')
+          .update({
+            payout_bank_code: bankCode,
+            payout_bank_name: bankName,
+            payout_account_number: accountNumber,
+            payout_account_name: accountName,
+          })
+          .eq('uuid', user.id);
 
-      if (updateError) {
-        this.logger.error(`Unable to save driver payout account: ${JSON.stringify(updateError)}`);
-        this.fail(500, 'Unable to save payout account');
-      }
+        if (updateError) {
+          this.logger.error(`Unable to save driver payout account: ${JSON.stringify(updateError)}`);
+          this.fail(500, 'Unable to save payout account');
+        }
 
-      return this.result(200, { bankCode, bankName, accountNumber, accountName });
-    });
+        return this.result(200, { bankCode, bankName, accountNumber, accountName });
+      },
+    );
   }
 
-  async setDriverTransferPin(authorization?: string, body?: PaymentBody): Promise<PaymentsResponse> {
-    return this.execute('set-driver-transfer-pin', 'Unexpected error setting transfer PIN', async () => {
-      if (!authorization) this.fail(401, 'Missing authorization header');
-      this.requireEnv('SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY');
-      const user = await this.getUser(authorization);
-      const pin = body?.pin as string | undefined;
+  async setDriverTransferPin(
+    authorization?: string,
+    body?: PaymentBody,
+  ): Promise<PaymentsResponse> {
+    return this.execute(
+      'set-driver-transfer-pin',
+      'Unexpected error setting transfer PIN',
+      async () => {
+        if (!authorization) this.fail(401, 'Missing authorization header');
+        this.requireEnv('SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY');
+        const user = await this.getUser(authorization);
+        const pin = body?.pin as string | undefined;
 
-      if (!pin || !/^\d{4,6}$/.test(pin)) this.fail(400, 'PIN must be 4 to 6 digits');
+        if (!pin || !/^\d{4,6}$/.test(pin)) this.fail(400, 'PIN must be 4 to 6 digits');
 
-      const { error: rpcError } = await this.supabase.admin.rpc('set_driver_transfer_pin', {
-        p_driver_uuid: user.id,
-        p_pin: pin,
-      });
+        const { error: rpcError } = await this.supabase.admin.rpc('set_driver_transfer_pin', {
+          p_driver_uuid: user.id,
+          p_pin: pin,
+        });
 
-      if (rpcError) {
-        this.logger.error(`Unable to set driver transfer PIN: ${JSON.stringify(rpcError)}`);
-        this.fail(500, 'Unable to set transfer PIN');
-      }
+        if (rpcError) {
+          this.logger.error(`Unable to set driver transfer PIN: ${JSON.stringify(rpcError)}`);
+          this.fail(500, 'Unable to set transfer PIN');
+        }
 
-      return this.result(200, { success: true });
-    });
+        return this.result(200, { success: true });
+      },
+    );
   }
 
-  async createVirtualAccount(authorization: string | undefined, profileType: 'driver' | 'rider'): Promise<PaymentsResponse> {
-    const functionName = profileType === 'driver' ? 'create-driver-virtual-account' : 'create-virtual-account';
+  async createVirtualAccount(
+    authorization: string | undefined,
+    profileType: 'driver' | 'rider',
+  ): Promise<PaymentsResponse> {
+    const functionName =
+      profileType === 'driver' ? 'create-driver-virtual-account' : 'create-virtual-account';
     const profileLabel = profileType === 'driver' ? 'Driver' : 'Rider';
     const table = profileType === 'driver' ? 'driver_profile' : 'rider_profile';
 
@@ -172,7 +212,9 @@ export class PaymentsService {
       const admin = this.supabase.admin;
       const { data: profile, error: profileError } = await admin
         .from(table)
-        .select('uuid, first_name, last_name, email, phone_num, wallet_account, bank_name, account_name, budpay_customer_code')
+        .select(
+          'uuid, first_name, last_name, email, phone_num, wallet_account, bank_name, account_name, budpay_customer_code',
+        )
         .eq('uuid', user.id)
         .single();
 
@@ -222,7 +264,9 @@ export class PaymentsService {
       const virtualAccountResult = await virtualAccountResponse.json();
 
       if (!virtualAccountResponse.ok || !virtualAccountResult?.status) {
-        this.logger.warn(`BudPay virtual account creation failed: ${JSON.stringify(virtualAccountResult)}`);
+        this.logger.warn(
+          `BudPay virtual account creation failed: ${JSON.stringify(virtualAccountResult)}`,
+        );
         this.fail(502, virtualAccountResult?.message || 'Unable to create virtual account');
       }
 
@@ -237,7 +281,9 @@ export class PaymentsService {
         .eq('uuid', user.id);
 
       if (updateError) {
-        this.logger.error(`Unable to save virtual account to ${profileType} profile: ${JSON.stringify(updateError)}`);
+        this.logger.error(
+          `Unable to save virtual account to ${profileType} profile: ${JSON.stringify(updateError)}`,
+        );
         this.fail(500, 'Unable to save virtual account details');
       }
 
@@ -272,7 +318,9 @@ export class PaymentsService {
       const admin = this.supabase.admin;
       const { data: profile, error: profileError } = await admin
         .from('driver_profile')
-        .select('uuid, wallet_balance, payout_bank_code, payout_bank_name, payout_account_number, payout_account_name, transfer_pin')
+        .select(
+          'uuid, wallet_balance, payout_bank_code, payout_bank_name, payout_account_number, payout_account_name, transfer_pin',
+        )
         .eq('uuid', user.id)
         .single();
 
@@ -292,10 +340,13 @@ export class PaymentsService {
       }
       if (!isPinValid) this.fail(401, 'Incorrect transfer PIN');
 
-      const { data: didHold, error: holdError } = await admin.rpc('decrement_driver_wallet_balance_if_sufficient', {
-        p_driver_uuid: user.id,
-        p_amount: amount,
-      });
+      const { data: didHold, error: holdError } = await admin.rpc(
+        'decrement_driver_wallet_balance_if_sufficient',
+        {
+          p_driver_uuid: user.id,
+          p_amount: amount,
+        },
+      );
       if (holdError) {
         this.logger.error(`Unable to hold driver wallet balance: ${JSON.stringify(holdError)}`);
         this.fail(500, 'Unable to process payout');
@@ -312,23 +363,32 @@ export class PaymentsService {
       });
       const requestId = randomUUID();
       const timestamp = new Date().toISOString();
-      const proxySignature = createHmac('sha256', this.config.get<string>('BUDPAY_PROXY_SIGNING_SECRET')!)
+      const proxySignature = createHmac(
+        'sha256',
+        this.config.get<string>('BUDPAY_PROXY_SIGNING_SECRET')!,
+      )
         .update(`${timestamp}.${requestId}.${transferPayload}`)
         .digest('hex');
-      const transferResponse = await fetch(`${this.config.get<string>('BUDPAY_PROXY_URL')}/v1/budpay/bank-transfer`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Limpopo-Timestamp': timestamp,
-          'X-Limpopo-Request-Id': requestId,
-          'X-Limpopo-Signature': proxySignature,
+      const transferResponse = await fetch(
+        `${this.config.get<string>('BUDPAY_PROXY_URL')}/v1/budpay/bank-transfer`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Limpopo-Timestamp': timestamp,
+            'X-Limpopo-Request-Id': requestId,
+            'X-Limpopo-Signature': proxySignature,
+          },
+          body: transferPayload,
         },
-        body: transferPayload,
-      });
+      );
       const transferResult = await transferResponse.json().catch(() => null);
 
       if (!transferResponse.ok || !transferResult?.success) {
-        await admin.rpc('increment_driver_wallet_balance', { p_driver_uuid: user.id, p_amount: amount });
+        await admin.rpc('increment_driver_wallet_balance', {
+          p_driver_uuid: user.id,
+          p_amount: amount,
+        });
         this.logger.warn(`BudPay bank transfer failed: ${JSON.stringify(transferResult)}`);
         this.fail(502, transferResult?.message || 'Unable to initiate payout');
       }
@@ -352,7 +412,9 @@ export class PaymentsService {
       });
 
       if (insertError) {
-        this.logger.error(`Unable to record driver payout transaction: ${JSON.stringify(insertError)}`);
+        this.logger.error(
+          `Unable to record driver payout transaction: ${JSON.stringify(insertError)}`,
+        );
       }
 
       return this.result(200, {
@@ -364,17 +426,12 @@ export class PaymentsService {
     });
   }
 
-  async budpayWebhook(signature: string | undefined, rawBody?: Buffer): Promise<PaymentsResponse> {
+  // Intentionally unauthenticated: the mobile apps call this to trigger verification, and BudPay
+  // calls it directly. The body is never trusted; the reference is re-verified with BudPay below.
+  async budpayWebhook(payload: any): Promise<PaymentsResponse> {
     return this.execute('budpay-webhook', 'Unexpected error processing webhook', async () => {
       this.requireEnv('SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'BUDPAY_SECRET_KEY');
-      if (!this.validWebhookSignature(signature, rawBody)) this.fail(401, 'Invalid webhook signature');
 
-      let payload: any = null;
-      try {
-        payload = rawBody ? JSON.parse(rawBody.toString('utf8')) : null;
-      } catch {
-        payload = null;
-      }
       if (!payload) this.fail(400, 'Invalid payload');
 
       const { notify, notifyType, data } = payload;
@@ -383,8 +440,11 @@ export class PaymentsService {
 
       const isWalletTopup =
         notify === 'transaction' &&
-        (data?.channel === 'dedicated_account' || data?.channel === 'card' || data?.channel === 'transfer');
-      if (!isWalletTopup || notifyType !== 'successful') return this.result(200, { received: true });
+        (data?.channel === 'dedicated_account' ||
+          data?.channel === 'card' ||
+          data?.channel === 'transfer');
+      if (!isWalletTopup || notifyType !== 'successful')
+        return this.result(200, { received: true });
 
       const reference: string | undefined = data?.reference;
       if (!reference) this.fail(400, 'Missing transaction reference');
@@ -393,27 +453,33 @@ export class PaymentsService {
         admin.from('rider_transaction').select('id').eq('reference', reference).maybeSingle(),
         admin.from('driver_transaction').select('id').eq('reference', reference).maybeSingle(),
       ]);
-      if (existingRiderTx || existingDriverTx) return this.result(200, { received: true, duplicate: true });
+      if (existingRiderTx || existingDriverTx)
+        return this.result(200, { received: true, duplicate: true });
 
       const verifyResponse = await fetch(`${BUDPAY_BASE_URL}/transaction/verify/${reference}`, {
         headers: { Authorization: this.budpayAuthorization() },
       });
       const verifyResult = await verifyResponse.json();
       if (!verifyResponse.ok || !verifyResult?.status || verifyResult.data?.status !== 'success') {
-        this.logger.warn(`BudPay verification failed for reference ${reference}: ${JSON.stringify(verifyResult)}`);
+        this.logger.warn(
+          `BudPay verification failed for reference ${reference}: ${JSON.stringify(verifyResult)}`,
+        );
         this.fail(400, 'Transaction could not be verified');
       }
 
       const verifiedData = verifyResult.data;
       const receiverAccountNumber: string | undefined = verifiedData.receiver_account_number;
       const customerEmail: string | undefined = verifiedData.customer?.email;
-      if (!receiverAccountNumber && !customerEmail) this.fail(400, 'Transaction has no matchable identifier');
+      if (!receiverAccountNumber && !customerEmail)
+        this.fail(400, 'Transaction has no matchable identifier');
 
       const creditedAmount = Number(verifiedData.amount ?? verifiedData.requested_amount ?? 0);
-      const metadataBookingId = typeof verifiedData.metadata?.bookingId === 'string' ? verifiedData.metadata.bookingId : '';
-      const rideBookingId = typeof data?.bookingId === 'string' && data.bookingId.trim()
-        ? data.bookingId.trim()
-        : metadataBookingId.trim();
+      const metadataBookingId =
+        typeof verifiedData.metadata?.bookingId === 'string' ? verifiedData.metadata.bookingId : '';
+      const rideBookingId =
+        typeof data?.bookingId === 'string' && data.bookingId.trim()
+          ? data.bookingId.trim()
+          : metadataBookingId.trim();
       let paidAt: string | null = null;
       if (verifiedData.transaction_date) {
         const parsed = new Date(String(verifiedData.transaction_date).replace(' ', 'T'));
@@ -435,13 +501,18 @@ export class PaymentsService {
       const { data: driverProfile } = await driverQuery.maybeSingle();
       if (driverProfile) return this.creditDriverWallet(admin, driverProfile.uuid, args);
 
-      this.logger.warn(`No rider or driver profile matches transaction: ${receiverAccountNumber ?? customerEmail}`);
+      this.logger.warn(
+        `No rider or driver profile matches transaction: ${receiverAccountNumber ?? customerEmail}`,
+      );
       this.fail(404, 'Profile not found for transaction');
     });
   }
 
   private async getUser(authorization: string) {
-    const { data: { user }, error: userError } = await this.supabase.forUser(authorization).auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await this.supabase.forUser(authorization).auth.getUser();
     if (userError || !user) this.fail(401, 'Invalid or expired session');
     return user;
   }
@@ -456,15 +527,6 @@ export class PaymentsService {
     return `Bearer ${this.config.get<string>('BUDPAY_SECRET_KEY')}`;
   }
 
-  private validWebhookSignature(signature?: string, rawBody?: Buffer) {
-    const secret = this.config.get<string>('BUDPAY_SECRET_KEY');
-    if (!signature || !rawBody || !secret) return false;
-    const expected = createHmac('sha512', secret).update(rawBody).digest('hex');
-    const providedBuffer = Buffer.from(signature, 'hex');
-    const expectedBuffer = Buffer.from(expected, 'hex');
-    return providedBuffer.length === expectedBuffer.length && timingSafeEqual(providedBuffer, expectedBuffer);
-  }
-
   private async execute(
     functionName: string,
     unexpectedMessage: string,
@@ -475,11 +537,14 @@ export class PaymentsService {
     } catch (error) {
       if (error instanceof HttpException) {
         const response = error.getResponse();
-        const message = typeof response === 'string'
-          ? response
-          : (response as { message?: string | string[] }).message;
+        const message =
+          typeof response === 'string'
+            ? response
+            : (response as { message?: string | string[] }).message;
         return this.result(error.getStatus(), {
-          error: Array.isArray(message) ? (message[0] ?? error.message) : (message ?? error.message),
+          error: Array.isArray(message)
+            ? (message[0] ?? error.message)
+            : (message ?? error.message),
         });
       }
       this.logger.error(`${functionName} error: ${String(error)}`);
@@ -495,7 +560,11 @@ export class PaymentsService {
     return { status, body };
   }
 
-  private async confirmRidePayment(admin: SupabaseClient, bookingId: string, args: CreditArgs): Promise<PaymentsResponse> {
+  private async confirmRidePayment(
+    admin: SupabaseClient,
+    bookingId: string,
+    args: CreditArgs,
+  ): Promise<PaymentsResponse> {
     const { reference, verifiedData, creditedAmount, paidAt, payload } = args;
     const { data, error } = await admin.rpc('confirm_ride_payment', {
       p_booking_id: bookingId,
@@ -552,7 +621,9 @@ export class PaymentsService {
       },
     });
     if (notificationInsertError) {
-      this.logger.error(`Unable to create driver settlement notification: ${JSON.stringify(notificationInsertError)}`);
+      this.logger.error(
+        `Unable to create driver settlement notification: ${JSON.stringify(notificationInsertError)}`,
+      );
     }
 
     const { data: driverProfile, error: driverError } = await admin
@@ -561,10 +632,13 @@ export class PaymentsService {
       .eq('uuid', driverUuid)
       .maybeSingle();
     if (driverError) {
-      this.logger.error(`Unable to load driver push profile for settlement notification: ${JSON.stringify(driverError)}`);
+      this.logger.error(
+        `Unable to load driver push profile for settlement notification: ${JSON.stringify(driverError)}`,
+      );
       return;
     }
-    if (!driverProfile?.push_notification || !this.isExpoPushToken(driverProfile.expo_push_token)) return;
+    if (!driverProfile?.push_notification || !this.isExpoPushToken(driverProfile.expo_push_token))
+      return;
 
     const expoResponse = await fetch(EXPO_PUSH_API_URL, {
       method: 'POST',
@@ -573,20 +647,22 @@ export class PaymentsService {
         Accept: 'application/json',
         'Accept-Encoding': 'gzip, deflate',
       },
-      body: JSON.stringify([{
-        to: driverProfile.expo_push_token,
-        title,
-        body,
-        sound: DRIVER_RIDE_REQUESTS_SOUND,
-        priority: 'high',
-        channelId: DRIVER_RIDE_REQUESTS_CHANNEL_ID,
-        data: {
-          bookingId,
-          source: 'rider_booking',
-          paymentStatus: 'paid',
-          screen: DRIVER_NOTIFICATIONS_SCREEN,
+      body: JSON.stringify([
+        {
+          to: driverProfile.expo_push_token,
+          title,
+          body,
+          sound: DRIVER_RIDE_REQUESTS_SOUND,
+          priority: 'high',
+          channelId: DRIVER_RIDE_REQUESTS_CHANNEL_ID,
+          data: {
+            bookingId,
+            source: 'rider_booking',
+            paymentStatus: 'paid',
+            screen: DRIVER_NOTIFICATIONS_SCREEN,
+          },
         },
-      }]),
+      ]),
     });
     if (!expoResponse.ok) {
       const expoResult = await expoResponse.json().catch(() => null);
@@ -594,7 +670,11 @@ export class PaymentsService {
     }
   }
 
-  private async creditRiderWallet(admin: SupabaseClient, riderUuid: string, args: CreditArgs): Promise<PaymentsResponse> {
+  private async creditRiderWallet(
+    admin: SupabaseClient,
+    riderUuid: string,
+    args: CreditArgs,
+  ): Promise<PaymentsResponse> {
     const { reference, verifiedData, creditedAmount, paidAt, payload } = args;
     const { error: insertError } = await admin.from('rider_transaction').insert({
       rider_uuid: riderUuid,
@@ -614,7 +694,8 @@ export class PaymentsService {
       raw_payload: payload,
     });
     if (insertError) {
-      if (insertError.code === '23505') return this.result(200, { received: true, duplicate: true });
+      if (insertError.code === '23505')
+        return this.result(200, { received: true, duplicate: true });
       this.logger.error(`Unable to record rider transaction: ${JSON.stringify(insertError)}`);
       return this.result(500, { error: 'Unable to record transaction' });
     }
@@ -624,13 +705,19 @@ export class PaymentsService {
       p_amount: creditedAmount,
     });
     if (incrementError) {
-      this.logger.error(`Unable to increment rider wallet balance: ${JSON.stringify(incrementError)}`);
+      this.logger.error(
+        `Unable to increment rider wallet balance: ${JSON.stringify(incrementError)}`,
+      );
       return this.result(500, { error: 'Unable to update wallet balance' });
     }
     return this.result(200, { received: true });
   }
 
-  private async creditDriverWallet(admin: SupabaseClient, driverUuid: string, args: CreditArgs): Promise<PaymentsResponse> {
+  private async creditDriverWallet(
+    admin: SupabaseClient,
+    driverUuid: string,
+    args: CreditArgs,
+  ): Promise<PaymentsResponse> {
     const { reference, verifiedData, creditedAmount, paidAt, payload } = args;
     const { error: insertError } = await admin.from('driver_transaction').insert({
       driver_uuid: driverUuid,
@@ -649,7 +736,8 @@ export class PaymentsService {
       raw_payload: payload,
     });
     if (insertError) {
-      if (insertError.code === '23505') return this.result(200, { received: true, duplicate: true });
+      if (insertError.code === '23505')
+        return this.result(200, { received: true, duplicate: true });
       this.logger.error(`Unable to record driver transaction: ${JSON.stringify(insertError)}`);
       return this.result(500, { error: 'Unable to record transaction' });
     }
@@ -659,16 +747,23 @@ export class PaymentsService {
       p_amount: creditedAmount,
     });
     if (incrementError) {
-      this.logger.error(`Unable to increment driver wallet balance: ${JSON.stringify(incrementError)}`);
+      this.logger.error(
+        `Unable to increment driver wallet balance: ${JSON.stringify(incrementError)}`,
+      );
       return this.result(500, { error: 'Unable to update wallet balance' });
     }
     return this.result(200, { received: true });
   }
 
-  private async handlePayoutWebhook(admin: SupabaseClient, data: any, notifyType: string): Promise<PaymentsResponse> {
+  private async handlePayoutWebhook(
+    admin: SupabaseClient,
+    data: any,
+    notifyType: string,
+  ): Promise<PaymentsResponse> {
     const reference: string | undefined = data?.reference;
     if (!reference) this.fail(400, 'Missing payout reference');
-    const nextStatus = notifyType === 'successful' ? 'success' : notifyType === 'failed' ? 'failed' : 'pending';
+    const nextStatus =
+      notifyType === 'successful' ? 'success' : notifyType === 'failed' ? 'failed' : 'pending';
     const { data: updatedRows, error: updateError } = await admin
       .from('driver_transaction')
       .update({ status: nextStatus, raw_payload: data })
@@ -686,7 +781,8 @@ export class PaymentsService {
         p_driver_uuid: updatedRows.driver_uuid,
         p_amount: Number(updatedRows.amount),
       });
-      if (refundError) this.logger.error(`Unable to refund failed driver payout: ${JSON.stringify(refundError)}`);
+      if (refundError)
+        this.logger.error(`Unable to refund failed driver payout: ${JSON.stringify(refundError)}`);
     }
     return this.result(200, { received: true });
   }
